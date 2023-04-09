@@ -251,3 +251,4 @@ app.get('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) 
 
 app.listen(port, () => {
   console.log(`API listening at http://localhost:${port}`)
+})
