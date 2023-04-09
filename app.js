@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express')
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 3001
 const mysql = require('mysql2');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const util = require('util');
+const { Z_ASCII } = require('zlib');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -45,6 +46,49 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+app.post('/admin/code', authenticateToken, (req, res) => {
+  const adminId = req.authorId;
+  if (adminId === "nim") {
+    const { username } = req.body;
+    const code = generateRegistrationCode(username);
+    res.send(code);
+  } else {
+    res.status(403).send('Forbidden');
+  }
+});
+
+function generateRegistrationCode(username) {
+  const code = process.env.REGISTRATION_CODE + username;
+  return bcrypt.hashSync(code, saltRounds);
+}
+
+app.post('/register', (req, res) => {
+  const { code, password, username } = req.body;
+  
+  if (code !== process.env.REGISTRATION_CODE) {
+    return res.status(400).send('Invalid registration code');
+  }
+  // Check that the user does not already exist in the database
+  connection.query('SELECT * FROM Authors WHERE username = ?', [username], function (error, results, fields) {
+    if (error) throw error;
+    if (results.length > 0) {
+      return res.status(409).send('User already exists');
+    }
+
+    // Hash the password
+    bcrypt.hash(password, 10, (err, hashedPassword) => {
+      if (err) throw err;
+
+      // Store the new user in the database
+      connection.query('INSERT INTO Authors SET ?', { username: username, password: hashedPassword }, function (error, results, fields) {
+        if (error) throw error;
+
+        res.status(201).send('User created successfully');
+      });
+    });
+  });
+});
+
 app.post('/auth', (req, res) => {
   const { username, password } = req.body;
   connection.query('SELECT * FROM Authors WHERE username = ?', [username], function (error, results, fields) {
@@ -52,18 +96,16 @@ app.post('/auth', (req, res) => {
     if (results.length === 0) {
       return res.status(401).send('Invalid username or password');
     }
-
-    //bcrypt.compare(password, results[0].password, (err, passwordMatch) => {
-    const stringPassword = results[0].password.toString();
-    const passwordMatch = stringPassword.localeCompare(password);
-    if (passwordMatch===0) {
-      const accessToken = jwt.sign({ username: results[0].username }, process.env.ACCESS_TOKEN_SECRET);
-      res.json({ accessToken });
-    } else {
-
-      res.status(401).send('Invalid username or password');
-    }
-    //});
+  
+    const hashedPassword = results[0].password;
+    bcrypt.compare(password, hashedPassword, function (err, passwordMatch) {
+      if (passwordMatch) {
+        const accessToken = jwt.sign({ username: results[0].username }, process.env.ACCESS_TOKEN_SECRET);
+        res.json({ accessToken });
+      } else {
+        res.status(401).send('Invalid username or password');
+      }
+    });
   });
 });
 
