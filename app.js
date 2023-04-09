@@ -7,9 +7,10 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const util = require('util');
-const { Z_ASCII } = require('zlib');
+const cors = require('cors');
 
 app.use(express.json());
+app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
 const connection = mysql.createConnection(process.env.DATABASE_URL);
