@@ -48,7 +48,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 app.get('/ok', (req, res) => {
-  res.status(200);
+  res.status(200).send('OK');
 });
 
 app.post('/admin/code', authenticateToken, (req, res) => {
