@@ -51,17 +51,6 @@ app.get('/ok', (req, res) => {
   res.status(200).send('OK');
 });
 
-app.get('/authors', (req, res) => {
-
-  connection.query('SELECT username FROM Authors', (err, rows, fields) => {
-    if (err) {
-      console.error(err);
-      res.status(500).send('Internal Server Error');
-    } else {
-      res.send(rows);
-    }
-  });
-});
 
 app.post('/admin/code', authenticateToken, (req, res) => {
   const adminId = req.authorId;
