@@ -51,6 +51,13 @@ app.get('/ok', (req, res) => {
   res.status(200).send('OK');
 });
 
+app.post('/authors', (req, res) => {
+  const { username, password } = req.body;
+  connection.query('SELECT username FROM Authors', function (error, results, fields) {
+    if (error) throw error;
+    res.send(results);
+    }
+});
 app.post('/admin/code', authenticateToken, (req, res) => {
   const adminId = req.authorId;
   if (adminId === "nim") {
