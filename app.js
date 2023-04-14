@@ -47,6 +47,10 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+app.get('/ok'. (req, res) => {
+  res.status(200);
+});
+
 app.post('/admin/code', authenticateToken, (req, res) => {
   const adminId = req.authorId;
   if (adminId === "nim") {
@@ -136,6 +140,7 @@ app.get('/mods/:modId', authenticateToken, (req, res) => {
 
     // check if mod exists
     if (results.length === 0) {
+
       return res.status(404).send('Mod not found');
     }
 
