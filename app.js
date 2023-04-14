@@ -47,7 +47,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-app.get('/ok'. (req, res) => {
+app.get('/ok', (req, res) => {
   res.status(200);
 });
 
