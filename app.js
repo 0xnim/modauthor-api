@@ -249,9 +249,7 @@ app.get('/mods/:modId/versions', authenticateToken, async (req, res) => {
       };
     }) : [];
 
-    console.log('modVersions:', modVersions);
-
-    res.json({ data: modVersions });
+    res.json(modVersions);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Internal server error' });
