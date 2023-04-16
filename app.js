@@ -284,14 +284,34 @@ app.get('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) 
       changelog: versionResults[0].changelog
     };
 
-    res.json({ data: modVersion });
+    res.json(modVersion);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+app.post('/mods/:modId/versions', authenticateToken, async (req, res) => {
+  const { modId, versionNumber, releaseDate, changelog} = req.body;
+  const authorId = req.authorId;
 
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Get the specific version of the mod
+    const query = await queryAsync('INSERT INTO ModVersions (modId, versionNumber, releaseDate, changelog) VALUES (?, ?, ?, ?)', [ modId, versionNumber || null, releaseDate || null, changelog || null]);
+
+    res.json("Version created");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
 
