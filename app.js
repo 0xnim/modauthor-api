@@ -371,8 +371,166 @@ app.get('/mods/:modId/versions/:versionId/files', authenticateToken, async (req,
   }
 });
 
+// POST /mods/:modId/versions/:versionId/files - Uploads a new file for a specific version of a mod belonging to the current author.
+app.post('/mods/:modId/versions/:versionId/files', authenticateToken, async (req, res) => {
+  const modId = req.params.modId;
+  const modVersionID = req.params.versionId;
+  const { fileType, fileSize, fileURL } = req.body;
+  const authorId = req.authorId;
 
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modId]);
 
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Create the file for the specific version of the mod
+    const query = await queryAsync('INSERT INTO ModFiles (modVersionID, fileType, fileSize, fileURL) VALUES (?, ?, ?, ?)', [modVersionID, fileType || null, fileSize || null, fileURL || null]);
+
+    res.json("File created");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /mods/:modId/versions/:versionId/files/:fileId - Deletes a specific file for a specific version of a mod belonging to the current author.
+app.delete('/mods/:modId/versions/:versionId/files/:fileId', authenticateToken, async (req, res) => {
+  const modID = req.params.modId;
+  const modVersionID = req.params.versionId;
+  const fileID = req.params.fileId;
+  const authorId = req.authorId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modID]);
+    
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Delete the specific file for the specific version of the mod
+    const query = await queryAsync('DELETE FROM ModFiles WHERE fileID = ?', [fileID]);
+
+    res.json("File deleted");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /mods/:modId/dependencies/:versionId - Returns a list of all dependencies for a specific version belonging to the current author.
+// modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType( required, optional, incompatible)
+app.get('/mods/:modId/dependencies/:versionId', authenticateToken, async (req, res) => {
+  const authorId = req.authorId;
+  const modId = req.params.modId;
+  const versionId = req.params.versionId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Get all dependencies for the specific version of the mod
+    const dependencyResults = await queryAsync('SELECT modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType FROM ModDependencies WHERE modVersionID = ?', [versionId]);
+
+    const modDependencies = dependencyResults && dependencyResults.length > 0 ? dependencyResults.map((row) => {
+      return {
+        modVersionID: row.modVersionID,
+        dependencyModID: row.dependencyModID,
+        maximumDependencyVersion: row.maximumDependencyVersion,
+        minimumDependencyVersion: row.minimumDependencyVersion,
+        dependencyType: row.dependencyType
+      };
+    }) : [];
+
+    res.json(modDependencies);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /mods/:modId/dependencies/:versionId - Adds a new dependency for a specific version belonging to the current author.
+app.post('/mods/:modId/dependencies/:versionId', authenticateToken, async (req, res) => {
+  const modId = req.params.modId;
+  const modVersionID = req.params.versionId;
+  const { dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType } = req.body;
+  const authorId = req.authorId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Create the dependency for the specific version of the mod
+    const query = await queryAsync('INSERT INTO ModDependencies (modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType) VALUES (?, ?, ?, ?, ?)', [modVersionID, dependencyModID || null, maximumDependencyVersion || null, minimumDependencyVersion || null, dependencyType || null]);
+
+    res.json("Dependency created");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /mods/:modId/dependencies/:versionId/:dependencyId - Updates the details of a specific dependency for a specific version belonging to the current author.
+app.put('/mods/:modId/dependencies/:versionId/:dependencyId', authenticateToken, async (req, res) => {
+  const modId = req.params.modId;
+  const modVersionID = req.params.versionId;
+  const dependencyID = req.params.dependencyId;
+  const { dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType } = req.body;
+  const authorId = req.authorId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Update the dependency for the specific version of the mod
+    const query = await queryAsync('UPDATE ModDependencies SET dependencyModID = ?, maximumDependencyVersion = ?, minimumDependencyVersion = ?, dependencyType = ? WHERE dependencyID = ?', [dependencyModID || null, maximumDependencyVersion || null, minimumDependencyVersion || null, dependencyType || null, dependencyID]);
+
+    res.json("Dependency updated");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /mods/:modId/dependencies/:versionId/:dependencyId - Deletes a specific dependency for a specific version belonging to the current author.
+app.delete('/mods/:modId/dependencies/:versionId/:dependencyId', authenticateToken, async (req, res) => {
+  const modID = req.params.modId;
+  const modVersionID = req.params.versionId;
+  const dependencyID = req.params.dependencyId;
+  const authorId = req.authorId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modID]);
+    
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Delete the dependency for the specific version of the mod
+    const query = await queryAsync('DELETE FROM ModDependencies WHERE dependencyID = ?', [dependencyID]);
+
+    res.json("Dependency deleted");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
 
