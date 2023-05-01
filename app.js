@@ -237,7 +237,6 @@ app.get('/mods/:modId/versions', authenticateToken, async (req, res) => {
     // Get all versions of the mod
     const versionResults = await queryAsync('SELECT modVersionId, modID, versionNumber, releaseDate, changelog FROM ModVersions WHERE modID = ?', [modId]);
 
-    console.log('versionResults:', versionResults);
 
     const modVersions = versionResults && versionResults.length > 0 ? versionResults.map((row) => {
       return {
@@ -303,7 +302,7 @@ app.post('/mods/:modId/versions', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
-    // Get the specific version of the mod
+    // Create the specific version of the mod
     const query = await queryAsync('INSERT INTO ModVersions (modId, versionNumber, releaseDate, changelog) VALUES (?, ?, ?, ?)', [ modId, versionNumber || null, releaseDate || null, changelog || null]);
 
     res.json("Version created");
@@ -312,6 +311,68 @@ app.post('/mods/:modId/versions', authenticateToken, async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+app.delete('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) => {
+  const modID = req.params.modId;
+  const modVersionId = req.params.versionId;
+  const authorId = req.authorId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modID]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Delete the specific version of the mod
+    const query = await queryAsync('DELETE FROM ModVersions WHERE modVersionId = ?', [modVersionId]);
+
+    res.json("Version deleted");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /mods/:modId/versions/:versionId/files - Returns a list of all files for a specific version of a mod belonging to the current author.
+// fileID, modVersionID, fileType, fileSize, fileURL, uploadDate
+app.get('/mods/:modId/versions/:versionId/files', authenticateToken, async (req, res) => {
+  const authorId = req.authorId;
+  const modId = req.params.modId;
+  const versionId = req.params.versionId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Get all files for the specific version of the mod
+    const fileResults = await queryAsync('SELECT fileID, modVersionID, fileType, fileSize, fileURL, uploadDate FROM ModFiles WHERE modVersionID = ?', [versionId]);
+
+    const modFiles = fileResults && fileResults.length > 0 ? fileResults.map((row) => {
+      return {
+        fileID: row.fileID,
+        modVersionID: row.modVersionID,
+        fileType: row.fileType,
+        fileSize: row.fileSize,
+        fileURL: row.fileURL,
+        uploadDate: row.uploadDate
+      };
+    }) : [];
+
+    res.json(modFiles);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
 
 
 
