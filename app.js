@@ -9,6 +9,10 @@ const saltRounds = 10;
 const util = require('util');
 const cors = require('cors');
 
+const axios = require('axios');
+
+
+
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
@@ -51,29 +55,24 @@ app.get('/ok', (req, res) => {
   res.status(200).send('OK');
 });
 
-
-app.post('/admin/code', authenticateToken, (req, res) => {
-  const adminId = req.authorId;
-  if (adminId === "nim") {
-    const { username } = req.body;
-    const code = generateRegistrationCode(username);
-    res.send(code);
-  } else {
-    res.status(403).send('Forbidden');
-  }
-});
-
 function generateRegistrationCode(username) {
   const code = process.env.REGISTRATION_CODE + username;
   return bcrypt.hashSync(code, saltRounds);
 }
 
-app.post('/register', (req, res) => {
-  const { code, password, username } = req.body;
-  
-  if (code !== process.env.REGISTRATION_CODE) {
-    return res.status(400).send('Invalid registration code');
+app.post('/register', async (req, res) => {
+  const { password, username, captchaToken } = req.body;
+
+  // Verify reCAPTCHA token
+  const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`;
+  const verificationResponse = await axios.post(verificationUrl);
+  console.log(verificationResponse);
+  const isRecaptchaValid = verificationResponse.data.success;
+
+  if (!isRecaptchaValid) {
+    return res.status(400).send('Invalid reCAPTCHA token');
   }
+
   // Check that the user does not already exist in the database
   connection.query('SELECT * FROM Authors WHERE username = ?', [username], function (error, results, fields) {
     if (error) throw error;
@@ -297,6 +296,8 @@ app.post('/mods/:modId/versions', authenticateToken, async (req, res) => {
   try {
     // Check if the mod belongs to the current author
     const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    console.log(modResults);
+    console.log('SELECT modAuthor FROM Mods WHERE modId =' + modId  )
 
     if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
