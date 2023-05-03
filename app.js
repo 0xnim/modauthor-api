@@ -438,7 +438,7 @@ app.get('/mods/:modId/dependencies/:versionId', authenticateToken, async (req, r
     }
 
     // Get all dependencies for the specific version of the mod
-    const dependencyResults = await queryAsync('SELECT modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType FROM ModDependencies WHERE modVersionID = ?', [versionId]);
+    const dependencyResults = await queryAsync('SELECT id, modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType FROM ModDependencies WHERE modVersionID = ?', [versionId]);
 
     const modDependencies = dependencyResults && dependencyResults.length > 0 ? dependencyResults.map((row) => {
       return {
