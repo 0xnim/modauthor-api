@@ -496,7 +496,7 @@ app.put('/mods/:modId/dependencies/:versionId/:dependencyId', authenticateToken,
     }
 
     // Update the dependency for the specific version of the mod
-    const query = await queryAsync('UPDATE ModDependencies SET dependencyModID = ?, maximumDependencyVersion = ?, minimumDependencyVersion = ?, dependencyType = ? WHERE dependencyID = ?', [dependencyModID || null, maximumDependencyVersion || null, minimumDependencyVersion || null, dependencyType || null, dependencyID]);
+    const query = await queryAsync('UPDATE ModDependencies SET maximumDependencyVersion = ?, minimumDependencyVersion = ?, dependencyType = ? WHERE id = ?', [maximumDependencyVersion || null, minimumDependencyVersion || null, dependencyType || null, dependencyID]);
 
     res.json("Dependency updated");
   } catch (error) {
