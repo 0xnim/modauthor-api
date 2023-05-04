@@ -55,10 +55,6 @@ app.get('/ok', (req, res) => {
   res.status(200).send('OK');
 });
 
-function generateRegistrationCode(username) {
-  const code = process.env.REGISTRATION_CODE + username;
-  return bcrypt.hashSync(code, saltRounds);
-}
 
 app.post('/register', async (req, res) => {
   const { password, username, captchaToken } = req.body;
@@ -438,11 +434,12 @@ app.get('/mods/:modId/dependencies/:versionId', authenticateToken, async (req, r
     }
 
     // Get all dependencies for the specific version of the mod
-    const dependencyResults = await queryAsync('SELECT modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType FROM ModDependencies WHERE modVersionID = ?', [versionId]);
+    const dependencyResults = await queryAsync('SELECT id, modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType FROM ModDependencies WHERE modVersionID = ?', [versionId]);
 
     const modDependencies = dependencyResults && dependencyResults.length > 0 ? dependencyResults.map((row) => {
       return {
-        modVersionID: row.modVersionID,
+       	id: row.id,
+	modVersionID: row.modVersionID,
         dependencyModID: row.dependencyModID,
         maximumDependencyVersion: row.maximumDependencyVersion,
         minimumDependencyVersion: row.minimumDependencyVersion,
@@ -524,7 +521,7 @@ app.delete('/mods/:modId/dependencies/:versionId/:dependencyId', authenticateTok
     }
 
     // Delete the dependency for the specific version of the mod
-    const query = await queryAsync('DELETE FROM ModDependencies WHERE dependencyID = ?', [dependencyID]);
+    const query = await queryAsync('DELETE FROM ModDependencies WHERE id = ?', [dependencyID]);
 
     res.json("Dependency deleted");
   } catch (error) {
