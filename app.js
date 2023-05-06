@@ -230,12 +230,12 @@ app.get('/mods/:modId/versions', authenticateToken, async (req, res) => {
     }
 
     // Get all versions of the mod
-    const versionResults = await queryAsync('SELECT modVersionId, modID, versionNumber, releaseDate, changelog FROM ModVersions WHERE modID = ?', [modId]);
+    const versionResults = await queryAsync('SELECT modVersionID, modID, versionNumber, releaseDate, changelog FROM ModVersions WHERE modID = ?', [modId]);
 
 
     const modVersions = versionResults && versionResults.length > 0 ? versionResults.map((row) => {
       return {
-        modVersionId: row.modVersionId,
+        modVersionID: row.modVersionID,
         modId: row.modID,
         versionNumber: row.versionNumber,
         releaseDate: row.releaseDate,
@@ -264,14 +264,14 @@ app.get('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) 
     }
 
     // Get the specific version of the mod
-    const versionResults = await queryAsync('SELECT modVersionId, modID, versionNumber, releaseDate, changelog FROM ModVersions WHERE modID = ? AND modVersionId = ?', [modId, versionId]);
+    const versionResults = await queryAsync('SELECT modVersionID, modID, versionNumber, releaseDate, changelog FROM ModVersions WHERE modID = ? AND modVersionID = ?', [modId, versionId]);
 
     if (versionResults.length === 0) {
       return res.status(404).json({ error: 'Version not found' });
     }
 
     const modVersion = {
-      modVersionId: versionResults[0].modVersionId,
+      modVersionID: versionResults[0].modVersionID,
       modId: versionResults[0].modID,
       versionNumber: versionResults[0].versionNumber,
       releaseDate: versionResults[0].releaseDate,
@@ -311,7 +311,7 @@ app.post('/mods/:modId/versions', authenticateToken, async (req, res) => {
 
 app.delete('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) => {
   const modID = req.params.modId;
-  const modVersionId = req.params.versionId;
+  const modVersionID = req.params.versionId;
   const authorId = req.authorId;
 
   try {
@@ -323,7 +323,7 @@ app.delete('/mods/:modId/versions/:versionId', authenticateToken, async (req, re
     }
 
     // Delete the specific version of the mod
-    const query = await queryAsync('DELETE FROM ModVersions WHERE modVersionId = ?', [modVersionId]);
+    const query = await queryAsync('DELETE FROM ModVersions WHERE modVersionID = ?', [modVersionID]);
 
     res.json("Version deleted");
   } catch (error) {
