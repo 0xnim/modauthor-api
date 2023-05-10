@@ -149,7 +149,7 @@ app.get('/mods/:modId', authenticateToken, (req, res) => {
 app.post('/mods', authenticateToken, async (req, res) => {
   const { modId, modName, modDescription, modVersion, modReleaseDate, modTags } = req.body;
   const authorId = req.authorId;
-
+  
   const query = 'INSERT INTO Mods (modId, modName, modDescription, modAuthor, modVersion, modReleaseDate,  modTags) VALUES (?, ?, ?, ?, ?, ?, ?)';
 
   if (modId && modName) {
@@ -216,6 +216,89 @@ app.delete('/mods/:modId', authenticateToken, (req, res) => {
     }
   });
 });
+
+// Mod Info Endpoints
+
+app.get('/mods/:modId/info', authenticateToken, async (req, res) => {
+  const authorId = req.authorId;
+  const modId = req.params.modId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Get the mod info
+
+    const infoResults = await queryAsync('SELECT * FROM ModInfo WHERE modID = ?', [modId]);
+
+    if (infoResults.length === 0) {
+      return res.status(404).json({ error: 'Mod info not found' });
+    }
+
+    const modInfo = {
+      modID: infoResults[0].modID,
+      github: infoResults[0].github,
+      forum: infoResults[0].forum,
+      donation: infoResults[0].donation,
+    }
+
+    res.json(modInfo);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/mods/:modId/info', authenticateToken, async (req, res) => {
+  const modId = req.params.modId;
+  const { github, forum, donation } = req.body;
+  const authorId = req.authorId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Create the mod info
+    const query = await queryAsync('INSERT INTO ModInfo (modID, github, forum, donation) VALUES (?, ?, ?, ?)', [modId, github || null, forum || null, donation || null]);
+    
+    res.json("Mod info created");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/mods/:modId/info', authenticateToken, async (req, res) => {
+  const modId = req.params.modId;
+  const { github, forum, donation } = req.body;
+  const authorId = req.authorId;
+
+  try {
+    // Check if the mod belongs to the current author
+    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+
+    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+      return res.status(404).json({ error: 'Mod not found or forbidden' });
+    }
+
+    // Update the mod info
+    const query = await queryAsync('UPDATE ModInfo SET github = ?, forum = ?, donation = ? WHERE modID = ?', [github || null, forum || null, donation || null, modId]);
+
+    res.json("Mod info updated");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 app.get('/mods/:modId/versions', authenticateToken, async (req, res) => {
   const authorId = req.authorId;
