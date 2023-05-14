@@ -39,6 +39,8 @@ function errorHandler(err, req, res, next) {
 app.use(errorHandler);
 
 // Middleware to authenticate requests
+const currentTokenVersion = process.env.TOKEN_VERSION; // Set the current token version
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -51,18 +53,17 @@ const authenticateToken = (req, res, next) => {
       }
       return res.sendStatus(403); // Token verification failed for other reasons
     }
-  
-    // Check if the token has expired
-    const currentTime = Math.floor(Date.now() / 1000); // Get the current time in seconds
-    if (decodedToken.exp <= currentTime) {
-      return res.sendStatus(401); // Token has expired
+
+    // Compare token version in the token payload with the current token version
+    if (decodedToken.tokenVersion !== currentTokenVersion) {
+      return res.sendStatus(401); // Token is invalid due to version change
     }
-  
+
     req.authorId = decodedToken.username;
     next();
   });
-  
 };
+
 
 app.get('/ok', (req, res) => {
   res.status(200).send('OK');
@@ -110,15 +111,12 @@ app.post('/auth', (req, res) => {
     if (results.length === 0) {
       return res.status(401).send('Invalid username or password');
     }
-  
+
     const hashedPassword = results[0].password;
     bcrypt.compare(password, hashedPassword, function (err, passwordMatch) {
       if (passwordMatch) {
-        const accessToken = jwt.sign(
-          { username: results[0].username },
-          process.env.ACCESS_TOKEN_SECRET,
-          { expiresIn: '7d' } // Set the expiration time (e.g., 30 minutes)
-        );
+        const tokenPayload = { username: results[0].username, tokenVersion: currentTokenVersion }; // Include the current token version in the token payload
+        const accessToken = jwt.sign(tokenPayload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
         res.json({ accessToken });
       } else {
         res.status(401).send('Invalid username or password');
@@ -126,6 +124,7 @@ app.post('/auth', (req, res) => {
     });
   });
 });
+
 
 
 app.get('/mods', authenticateToken, (req, res) => {
