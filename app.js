@@ -45,10 +45,23 @@ const authenticateToken = (req, res, next) => {
   if (token == null) return res.sendStatus(401);
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decodedToken) => {
-    if (err) return res.sendStatus(403);
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.sendStatus(401); // Token has expired
+      }
+      return res.sendStatus(403); // Token verification failed for other reasons
+    }
+  
+    // Check if the token has expired
+    const currentTime = Math.floor(Date.now() / 1000); // Get the current time in seconds
+    if (decodedToken.exp <= currentTime) {
+      return res.sendStatus(401); // Token has expired
+    }
+  
     req.authorId = decodedToken.username;
     next();
   });
+  
 };
 
 app.get('/ok', (req, res) => {
@@ -101,7 +114,11 @@ app.post('/auth', (req, res) => {
     const hashedPassword = results[0].password;
     bcrypt.compare(password, hashedPassword, function (err, passwordMatch) {
       if (passwordMatch) {
-        const accessToken = jwt.sign({ username: results[0].username }, process.env.ACCESS_TOKEN_SECRET);
+        const accessToken = jwt.sign(
+          { username: results[0].username },
+          process.env.ACCESS_TOKEN_SECRET,
+          { expiresIn: '7d' } // Set the expiration time (e.g., 30 minutes)
+        );
         res.json({ accessToken });
       } else {
         res.status(401).send('Invalid username or password');
