@@ -262,6 +262,7 @@ app.get('/mods/:modId/info', authenticateToken, async (req, res) => {
     if (infoResults.length === 0) {
       return res.status(404).json({ error: 'Mod info not found' });
     }
+    
 
     const modInfo = {
       modID: infoResults[0].modID,
@@ -277,6 +278,20 @@ app.get('/mods/:modId/info', authenticateToken, async (req, res) => {
   }
 });
 
+const checkUrl = (url) => {
+  const allowedDomains = ['/github.com', '/cdn.astromods.xyz', '/jmnet.one', 'patreon.com', 'paypal.com'];
+
+  const isAllowed = allowedDomains.some(domain => url.includes(domain));
+  
+  if (isAllowed) {
+    // URL is from allowed domain
+    return true;
+  } else {
+    // URL is not from allowed domain
+    return false;
+  }
+}
+
 app.post('/mods/:modId/info', authenticateToken, async (req, res) => {
   const modId = req.params.modId;
   const { github, forum, donation } = req.body;
@@ -289,6 +304,17 @@ app.post('/mods/:modId/info', authenticateToken, async (req, res) => {
     if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
+    // Check if the URLs are valid
+    if (github && !checkUrl(github)) {
+      return res.status(400).json({ error: 'Invalid github URL' });
+    }
+    if (forum && !checkUrl(forum)) {
+      return res.status(400).json({ error: 'Invalid forum URL' });
+    }
+    if (donation && !checkUrl(donation)) {
+      return res.status(400).json({ error: 'Invalid donation URL' });
+    }
+
 
     // Create the mod info
     const query = await queryAsync('INSERT INTO ModInfo (modID, github, forum, donation) VALUES (?, ?, ?, ?)', [modId, github || null, forum || null, donation || null]);
