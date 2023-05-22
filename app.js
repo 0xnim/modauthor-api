@@ -12,7 +12,6 @@ const cors = require('cors');
 const axios = require('axios');
 
 
-
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
@@ -106,6 +105,15 @@ app.post('/register', async (req, res) => {
 
 app.post('/auth', (req, res) => {
   const { username, password } = req.body;
+  // if remember is true save for 7d instead of 30m
+  let { remember } = req.body || false;
+  if (remember) {
+    expireTime = '7d';
+  } else {
+    expireTime = '30m';
+  }
+
+
   connection.query('SELECT * FROM Authors WHERE username = ?', [username], function (error, results, fields) {
     if (error) throw error;
     if (results.length === 0) {
@@ -116,7 +124,7 @@ app.post('/auth', (req, res) => {
     bcrypt.compare(password, hashedPassword, function (err, passwordMatch) {
       if (passwordMatch) {
         const tokenPayload = { username: results[0].username, tokenVersion: currentTokenVersion }; // Include the current token version in the token payload
-        const accessToken = jwt.sign(tokenPayload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
+        const accessToken = jwt.sign(tokenPayload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: expireTime });
         res.json({ accessToken });
       } else {
         res.status(401).send('Invalid username or password');
