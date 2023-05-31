@@ -1,5 +1,5 @@
 {
-  "name": "express-example",
+  "name": "portal-api",
   "version": "1.0.0",
   "description": "Express + PlanetScale",
   "main": "index.js",
