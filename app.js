@@ -11,6 +11,14 @@ const cors = require('cors');
 
 const axios = require('axios');
 
+// Auth
+const { Clerk } = require('@clerk/clerk-sdk-node');
+const bodyParser = require('body-parser');
+
+const clerk = new Clerk({
+  apiKey: process.env.CLERK_API_KEY,
+  frontendApi: process.env.CLERK_FRONTEND_URL,
+});
 
 app.use(express.json());
 app.use(cors());
@@ -37,102 +45,34 @@ function errorHandler(err, req, res, next) {
 // Add error handler to app
 app.use(errorHandler);
 
-// Middleware to authenticate requests
-const currentTokenVersion = process.env.TOKEN_VERSION; // Set the current token version
-
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
+const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
-  if (token == null) return res.sendStatus(401);
 
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decodedToken) => {
-    if (err) {
-      if (err.name === 'TokenExpiredError') {
-        return res.sendStatus(401); // Token has expired
-      }
-      return res.sendStatus(403); // Token verification failed for other reasons
-    }
+  if (!token) {
+    return res.sendStatus(401); // Unauthorized
+  }
 
-    // Compare token version in the token payload with the current token version
-    if (decodedToken.tokenVersion !== currentTokenVersion) {
-      return res.sendStatus(401); // Token is invalid due to version change
-    }
+  try {
+    // Verify the JWT token
+    const decoded = jwt.decode(token);
 
-    req.authorId = decodedToken.username;
+    // Set the user ID in the request object
+    req.authorId = decoded.username;
+
+    // Call the next middleware function
     next();
-  });
+  } catch (err) {
+    // Return a 403 error if the token is invalid
+    console.log(err);
+    res.sendStatus(403); // Forbidden
+  }
 };
 
 
 app.get('/ok', (req, res) => {
   res.status(200).send('OK');
 });
-
-
-app.post('/register', async (req, res) => {
-  const { password, username, captchaToken } = req.body;
-
-  // Verify reCAPTCHA token
-  const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`;
-  const verificationResponse = await axios.post(verificationUrl);
-  console.log(verificationResponse);
-  const isRecaptchaValid = verificationResponse.data.success;
-
-  if (!isRecaptchaValid) {
-    return res.status(400).send('Invalid reCAPTCHA token');
-  }
-
-  // Check that the user does not already exist in the database
-  connection.query('SELECT * FROM Authors WHERE username = ?', [username], function (error, results, fields) {
-    if (error) throw error;
-    if (results.length > 0) {
-      return res.status(409).send('User already exists');
-    }
-
-    // Hash the password
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
-      if (err) throw err;
-
-      // Store the new user in the database
-      connection.query('INSERT INTO Authors SET ?', { username: username, password: hashedPassword }, function (error, results, fields) {
-        if (error) throw error;
-
-        res.status(201).send('User created successfully');
-      });
-    });
-  });
-});
-
-app.post('/auth', (req, res) => {
-  const { username, password } = req.body;
-  // if remember is true save for 7d instead of 30m
-  let { remember } = req.body || false;
-  if (remember) {
-    expireTime = '7d';
-  } else {
-    expireTime = '30m';
-  }
-
-
-  connection.query('SELECT * FROM Authors WHERE username = ?', [username], function (error, results, fields) {
-    if (error) throw error;
-    if (results.length === 0) {
-      return res.status(401).send('Invalid username or password');
-    }
-
-    const hashedPassword = results[0].password;
-    bcrypt.compare(password, hashedPassword, function (err, passwordMatch) {
-      if (passwordMatch) {
-        const tokenPayload = { username: results[0].username, tokenVersion: currentTokenVersion }; // Include the current token version in the token payload
-        const accessToken = jwt.sign(tokenPayload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: expireTime });
-        res.json({ accessToken });
-      } else {
-        res.status(401).send('Invalid username or password');
-      }
-    });
-  });
-});
-
 
 
 app.get('/mods', authenticateToken, (req, res) => {
