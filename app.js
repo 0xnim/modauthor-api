@@ -59,6 +59,7 @@ const authenticateToken = async (req, res, next) => {
 
     // Set the user ID in the request object
     req.authorId = decoded.username;
+    req.ownerId = decoded.sub;
 
     // Call the next middleware function
     next();
@@ -76,9 +77,9 @@ app.get('/ok', (req, res) => {
 
 
 app.get('/mods', authenticateToken, (req, res) => {
-  const username = req.authorId;
+  const owner = req.ownerId;
 
-  connection.query('SELECT * FROM Mods WHERE modAuthor = ?', [username], (err, rows, fields) => {
+  connection.query('SELECT * FROM Mods WHERE owner = ?', [owner], (err, rows, fields) => {
     if (err) {
       console.error(err);
       res.status(500).send('Internal Server Error');
@@ -112,14 +113,14 @@ app.get('/mods/:modId', authenticateToken, (req, res) => {
 
 app.post('/mods', authenticateToken, async (req, res) => {
   const { modId, modName, modDescription, modVersion, modReleaseDate, modTags } = req.body;
-  const authorId = req.authorId;
+  const owner = req.ownerId;
   
-  const query = 'INSERT INTO Mods (modId, modName, modDescription, modAuthor, modVersion, modReleaseDate,  modTags) VALUES (?, ?, ?, ?, ?, ?, ?)';
+  const query = 'INSERT INTO Mods (modId, modName, modDescription, owner, modVersion, modReleaseDate,  modTags) VALUES (?, ?, ?, ?, ?, ?, ?)';
 
   if (modId && modName) {
     connection.query(
       query,
-      [modId, modName, modDescription || null, authorId, modVersion || null, modReleaseDate || null, modTags || null],
+      [modId, modName, modDescription || null, owner, modVersion || null, modReleaseDate || null, modTags || null],
       (error, results, fields) => {
         if (error) {
           console.error(error);
@@ -136,14 +137,14 @@ app.post('/mods', authenticateToken, async (req, res) => {
 
 app.put('/mods/:modId', authenticateToken, async (req, res) => {
   const modId = req.params.modId;
-  const authorId = req.authorId;
+  const owner = req.ownerId;
   const { modName, modDescription, modVersion, modTags } = req.body;
 
-  const query = 'UPDATE Mods SET modName = ?, modDescription = ?, modVersion = ?, modTags = ? WHERE modId = ? AND modAuthor = ?';
+  const query = 'UPDATE Mods SET modName = ?, modDescription = ?, modVersion = ?, modTags = ? WHERE modId = ? AND owner = ?';
 
   connection.query(
     query,
-    [modName || null, modDescription || null, modVersion || null, modTags || null, modId, authorId],
+    [modName || null, modDescription || null, modVersion || null, modTags || null, modId, owner],
     (error, results, fields) => {
       console.log(fields);
       if (error) {
@@ -159,17 +160,17 @@ app.put('/mods/:modId', authenticateToken, async (req, res) => {
 });
 
 app.delete('/mods/:modId', authenticateToken, (req, res) => {
-  const username = req.authorId;
+  const owner = req.ownerId;
   const modId = req.params.modId;
 
-  connection.query('SELECT * FROM Mods WHERE modAuthor = ? AND modId = ?', [username, modId], (err, rows, fields) => {
+  connection.query('SELECT * FROM Mods WHERE owner = ? AND modId = ?', [owner, modId], (err, rows, fields) => {
     if (err) {
       console.error(err);
       res.status(500).send('Internal Server Error');
     } else if (rows.length === 0) {
       res.status(404).send('Mod Not Found');
     } else {
-      connection.query('DELETE FROM Mods WHERE modAuthor = ? AND modId = ?', [username, modId], (err, result) => {
+      connection.query('DELETE FROM Mods WHERE owner = ? AND modId = ?', [owner, modId], (err, result) => {
         if (err) {
           console.error(err);
           res.status(500).send('Internal Server Error');
@@ -184,14 +185,14 @@ app.delete('/mods/:modId', authenticateToken, (req, res) => {
 // Mod Info Endpoints
 
 app.get('/mods/:modId/info', authenticateToken, async (req, res) => {
-  const authorId = req.authorId;
+  const owner = req.ownerId;
   const modId = req.params.modId;
 
   try {
-    // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    // Check if the mod belongs to the current owner
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== owner) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -235,13 +236,13 @@ const checkUrl = (url) => {
 app.post('/mods/:modId/info', authenticateToken, async (req, res) => {
   const modId = req.params.modId;
   const { github, forum, donation } = req.body;
-  const authorId = req.authorId;
+  const owner = req.ownerId;
 
   try {
-    // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    // Check if the mod belongs to the current owner
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== owner) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
     // Check if the URLs are valid
@@ -269,13 +270,14 @@ app.post('/mods/:modId/info', authenticateToken, async (req, res) => {
 app.put('/mods/:modId/info', authenticateToken, async (req, res) => {
   const modId = req.params.modId;
   const { github, forum, donation } = req.body;
-  const authorId = req.authorId;
+
+  const owner = req.ownerId;
 
   try {
-    // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    // Check if the mod belongs to the current owner
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== owner) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -291,14 +293,14 @@ app.put('/mods/:modId/info', authenticateToken, async (req, res) => {
 
 
 app.get('/mods/:modId/versions', authenticateToken, async (req, res) => {
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
   const modId = req.params.modId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -324,15 +326,15 @@ app.get('/mods/:modId/versions', authenticateToken, async (req, res) => {
 });
 
 app.get('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) => {
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
   const modId = req.params.modId;
   const versionId = req.params.versionId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -360,15 +362,15 @@ app.get('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) 
 
 app.post('/mods/:modId/versions', authenticateToken, async (req, res) => {
   const { modId, versionNumber, releaseDate, changelog} = req.body;
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
     console.log(modResults);
-    console.log('SELECT modAuthor FROM Mods WHERE modId =' + modId  )
+    console.log('SELECT owner FROM Mods WHERE modId =' + modId  )
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -385,13 +387,13 @@ app.post('/mods/:modId/versions', authenticateToken, async (req, res) => {
 app.delete('/mods/:modId/versions/:versionId', authenticateToken, async (req, res) => {
   const modID = req.params.modId;
   const modVersionID = req.params.versionId;
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modID]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modID = ?', [modID]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -408,15 +410,15 @@ app.delete('/mods/:modId/versions/:versionId', authenticateToken, async (req, re
 // GET /mods/:modId/versions/:versionId/files - Returns a list of all files for a specific version of a mod belonging to the current author.
 // fileID, modVersionID, fileType, fileSize, fileURL, uploadDate
 app.get('/mods/:modId/versions/:versionId/files', authenticateToken, async (req, res) => {
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
   const modId = req.params.modId;
   const versionId = req.params.versionId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -446,13 +448,13 @@ app.post('/mods/:modId/versions/:versionId/files', authenticateToken, async (req
   const modId = req.params.modId;
   const modVersionID = req.params.versionId;
   const { fileType, fileSize, fileURL } = req.body;
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modID = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -471,13 +473,13 @@ app.delete('/mods/:modId/versions/:versionId/files/:fileId', authenticateToken, 
   const modID = req.params.modId;
   const modVersionID = req.params.versionId;
   const fileID = req.params.fileId;
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modID]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modID = ?', [modID]);
     
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -494,15 +496,15 @@ app.delete('/mods/:modId/versions/:versionId/files/:fileId', authenticateToken, 
 // GET /mods/:modId/dependencies/:versionId - Returns a list of all dependencies for a specific version belonging to the current author.
 // modVersionID, dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType( required, optional, incompatible)
 app.get('/mods/:modId/dependencies/:versionId', authenticateToken, async (req, res) => {
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
   const modId = req.params.modId;
   const versionId = req.params.versionId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modId = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modId = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -532,13 +534,13 @@ app.post('/mods/:modId/dependencies/:versionId', authenticateToken, async (req, 
   const modId = req.params.modId;
   const modVersionID = req.params.versionId;
   const { dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType } = req.body;
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modID = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -558,13 +560,13 @@ app.put('/mods/:modId/dependencies/:versionId/:dependencyId', authenticateToken,
   const modVersionID = req.params.versionId;
   const dependencyID = req.params.dependencyId;
   const { dependencyModID, maximumDependencyVersion, minimumDependencyVersion, dependencyType } = req.body;
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modId]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modID = ?', [modId]);
 
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
@@ -583,13 +585,13 @@ app.delete('/mods/:modId/dependencies/:versionId/:dependencyId', authenticateTok
   const modID = req.params.modId;
   const modVersionID = req.params.versionId;
   const dependencyID = req.params.dependencyId;
-  const authorId = req.authorId;
+  const ownerId = req.ownerId;
 
   try {
     // Check if the mod belongs to the current author
-    const modResults = await queryAsync('SELECT modAuthor FROM Mods WHERE modID = ?', [modID]);
+    const modResults = await queryAsync('SELECT owner FROM Mods WHERE modID = ?', [modID]);
     
-    if (modResults.length === 0 || modResults[0].modAuthor !== authorId) {
+    if (modResults.length === 0 || modResults[0].owner !== ownerId) {
       return res.status(404).json({ error: 'Mod not found or forbidden' });
     }
 
