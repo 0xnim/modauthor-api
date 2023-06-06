@@ -138,13 +138,13 @@ app.post('/mods', authenticateToken, async (req, res) => {
 app.put('/mods/:modId', authenticateToken, async (req, res) => {
   const modId = req.params.modId;
   const owner = req.ownerId;
-  const { modName, modDescription, modVersion, modTags } = req.body;
+  const { modName, modDescription, modVersion, modTags, modIcon } = req.body;
 
-  const query = 'UPDATE Mods SET modName = ?, modDescription = ?, modVersion = ?, modTags = ? WHERE modId = ? AND owner = ?';
+  const query = 'UPDATE Mods SET modName = ?, modDescription = ?, modVersion = ?, modTags = ?, modIcon = ? WHERE modId = ? AND owner = ?';
 
   connection.query(
     query,
-    [modName || null, modDescription || null, modVersion || null, modTags || null, modId, owner],
+    [modName || null, modDescription || null, modVersion || null, modTags || null, modIcon || null, modId, owner],
     (error, results, fields) => {
       console.log(fields);
       if (error) {
