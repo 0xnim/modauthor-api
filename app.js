@@ -112,15 +112,15 @@ app.get('/mods/:modId', authenticateToken, (req, res) => {
 });
 
 app.post('/mods', authenticateToken, async (req, res) => {
-  const { modId, modName, modDescription, modVersion, modReleaseDate, modTags } = req.body;
+  const { modId, modName, modDescription, modVersion, modReleaseDate, modTags, modIcon } = req.body;
   const owner = req.ownerId;
   
-  const query = 'INSERT INTO Mods (modId, modName, modDescription, owner, modVersion, modReleaseDate,  modTags) VALUES (?, ?, ?, ?, ?, ?, ?)';
+  const query = 'INSERT INTO Mods (modId, modName, modDescription, owner, modVersion, modReleaseDate,  modTags, modIcon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
   if (modId && modName) {
     connection.query(
       query,
-      [modId, modName, modDescription || null, owner, modVersion || null, modReleaseDate || null, modTags || null],
+      [modId, modName, modDescription || null, owner, modVersion || null, modReleaseDate || null, modTags || null, modIcon || null],
       (error, results, fields) => {
         if (error) {
           console.error(error);
